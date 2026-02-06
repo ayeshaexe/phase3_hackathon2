@@ -1,0 +1,312 @@
+openapi: 3.0.3
+info:
+  title: AI Chat API
+  description: API for AI-powered chat functionality with conversation history
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: https://api.todo-app.com/v1
+    description: Production server
+
+paths:
+  /{user_id}/chat:
+    post:
+      summary: Send a message to the AI chat agent
+      description: Creates a new message in the conversation and returns AI-generated response
+      operationId: sendMessage
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user sending the message
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: Successfully received AI response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /{user_id}/conversations:
+    get:
+      summary: Get all conversations for a user
+      description: Retrieve a list of all conversations for the specified user
+      operationId: getUserConversations
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of conversations to return
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          description: Number of conversations to skip
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successfully retrieved conversations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetConversationsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /{user_id}/conversations/{conversation_id}:
+    get:
+      summary: Get a specific conversation
+      description: Retrieve a specific conversation and its message history
+      operationId: getConversation
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user
+          schema:
+            type: string
+        - name: conversation_id
+          in: path
+          required: true
+          description: The ID of the conversation
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully retrieved conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetConversationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SendMessageRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: The user's message to send to the AI
+          example: "Add a new task to buy groceries"
+        conversation_id:
+          type: integer
+          description: Optional. The ID of the conversation to continue. If not provided, a new conversation is created.
+          example: 123
+
+    SendMessageResponse:
+      type: object
+      required:
+        - message
+        - conversation_id
+        - timestamp
+      properties:
+        message:
+          type: string
+          description: The AI's response message
+          example: "I've added the task 'buy groceries' to your list."
+        conversation_id:
+          type: integer
+          description: The ID of the conversation
+          example: 123
+        timestamp:
+          type: string
+          format: date-time
+          description: When the response was generated
+          example: "2023-10-20T10:00:00Z"
+        metadata:
+          type: object
+          description: Additional information about the response
+          properties:
+            tokens_used:
+              type: integer
+              description: Number of tokens used in the response
+              example: 45
+
+    Message:
+      type: object
+      required:
+        - id
+        - role
+        - content
+        - timestamp
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the message
+          example: 456
+        role:
+          type: string
+          enum: [user, assistant]
+          description: The role of the message sender
+          example: "user"
+        content:
+          type: string
+          description: The content of the message
+          example: "Add a new task to buy groceries"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the message was created
+          example: "2023-10-20T10:00:00Z"
+
+    ConversationSummary:
+      type: object
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the conversation
+          example: 123
+        title:
+          type: string
+          description: Title of the conversation, usually generated from the first message
+          example: "Grocery list management"
+        created_at:
+          type: string
+          format: date-time
+          description: When the conversation was created
+          example: "2023-10-20T09:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: When the conversation was last updated
+          example: "2023-10-20T10:00:00Z"
+
+    GetConversationsResponse:
+      type: object
+      required:
+        - conversations
+        - total_count
+      properties:
+        conversations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationSummary'
+        total_count:
+          type: integer
+          description: Total number of conversations for the user
+          example: 5
+
+    GetConversationResponse:
+      type: object
+      required:
+        - conversation
+        - messages
+      properties:
+        conversation:
+          $ref: '#/components/schemas/ConversationSummary'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters or body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: User does not have permission to access this resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: An unexpected error occurred
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "NOT_FOUND"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Conversation not found"
